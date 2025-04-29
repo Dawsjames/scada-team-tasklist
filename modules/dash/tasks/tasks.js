@@ -8,12 +8,14 @@ const tabs = document.querySelectorAll('.tab');
 const memberFilter = document.getElementById('memberFilter');
 const projectFilter = document.getElementById('projectFilter');
 const modalTitle = document.getElementById('modal-title');
+// Added taskNameInput to handle the name field in the modal
 const taskNameInput = document.getElementById('taskName');
 const taskDescriptionInput = document.getElementById('taskDescription');
 const taskStatusInput = document.getElementById('taskStatus');
 const taskAssigneeInput = document.getElementById('taskAssignee');
 const taskDueDateInput = document.getElementById('taskDueDate');
-const taskProjectInput = document.getElementById('taskProject');
+const taskPriorityInput = document.getElementById('taskPriority');
+const taskCategoryInput = document.getElementById('taskProject'); // We'll use this for backward compatibility
 const taskIdInput = document.getElementById('taskId');
 const saveTaskButton = document.getElementById('saveTaskButton');
 const deleteTaskButton = document.getElementById('deleteTaskButton');
@@ -30,11 +32,17 @@ const projects = [
  * Initialize projects - populate dropdown menus
  */
 function initProjects() {
+  // Check if project filter exists
+  if (!projectFilter || !taskCategoryInput) {
+    console.error('Project filter or task category input not found');
+    return;
+  }
+
   // Populate project filter dropdown
   projectFilter.innerHTML = '<option value="all">All Projects</option>';
 
   // Populate task modal project dropdown
-  taskProjectInput.innerHTML = '';
+  taskCategoryInput.innerHTML = '';
 
   projects.forEach((project) => {
     // Add to filter dropdown
@@ -47,7 +55,7 @@ function initProjects() {
     const modalOption = document.createElement('option');
     modalOption.value = project.id;
     modalOption.textContent = project.name;
-    taskProjectInput.appendChild(modalOption);
+    taskCategoryInput.appendChild(modalOption);
   });
 }
 
@@ -62,6 +70,12 @@ function getProject(projectId) {
  * Update task list display based on current filters
  */
 function updateTaskList() {
+  // Check if task list exists
+  if (!taskList) {
+    console.error('Task list element not found');
+    return;
+  }
+
   // Get active filters
   const activeTabFilter = getCurrentActiveTab();
   const activeMemberFilter = getCurrentMemberFilter();
@@ -88,14 +102,14 @@ function updateTaskList() {
 
   // Update tab highlights and attach event listeners
   attachCheckboxListeners();
-  updateTabsBasedOnAssignment();
+  updateTabsBasedOnTask();
 }
 
 /**
  * Get current project filter
  */
 function getCurrentProjectFilter() {
-  return projectFilter.value;
+  return projectFilter ? projectFilter.value : 'all';
 }
 
 /**
@@ -112,6 +126,9 @@ function filterTasks(tabFilter, memberFilter, projectFilter) {
     case 'completed':
       result = result.filter((task) => task.completed);
       break;
+    case 'high-priority':
+      result = result.filter((task) => task.priority === 'High');
+      break;
     case 'overdue':
       result = result.filter((task) => isTaskOverdue(task));
       break;
@@ -125,10 +142,55 @@ function filterTasks(tabFilter, memberFilter, projectFilter) {
 
   // Apply project filter if not 'all'
   if (projectFilter !== 'all') {
-    result = result.filter((task) => task.project === projectFilter);
+    // Check for both category and project fields
+    result = result.filter(
+      (task) =>
+        task.category === projectFilter || task.project === projectFilter
+    );
   }
 
   return result;
+}
+
+/**
+ * Update tab styling based on task data
+ */
+function updateTabsBasedOnTask() {
+  // Remove 'has-assigned' class from all tabs
+  tabs.forEach((tab) => {
+    tab.classList.remove('has-assigned');
+  });
+
+  // Only proceed if a specific member is selected (not 'all')
+  const currentMember = getCurrentMemberFilter();
+  if (currentMember === 'all') return;
+
+  // Find tasks assigned to the selected member
+  const memberTasks = tasks.filter((task) => task.assignee === currentMember);
+
+  // Track which statuses have tasks
+  const hasIncomplete = memberTasks.some((task) => !task.completed);
+  const hasCompleted = memberTasks.some((task) => task.completed);
+  const hasOverdue = memberTasks.some((task) => isTaskOverdue(task));
+
+  // Update tabs with indicators
+  if (hasIncomplete) {
+    document
+      .querySelector('.tab[data-filter="pending"]')
+      ?.classList.add('has-assigned');
+  }
+
+  if (hasCompleted) {
+    document
+      .querySelector('.tab[data-filter="completed"]')
+      ?.classList.add('has-assigned');
+  }
+
+  if (hasOverdue) {
+    document
+      .querySelector('.tab[data-filter="overdue"]')
+      ?.classList.add('has-assigned');
+  }
 }
 
 /**
@@ -161,8 +223,9 @@ function renderTaskItem(task) {
   const assignee = teamMembers.find((member) => member.name === task.assignee);
   const assigneeInitial = assignee ? getInitial(assignee.name) : '';
 
-  // Get project information
-  const project = getProject(task.project);
+  // Get project information - check both category and project fields
+  const projectId = task.category || task.project || 'other';
+  const project = getProject(projectId);
 
   // Build task HTML with redesigned layout
   taskElement.innerHTML = `
@@ -171,11 +234,20 @@ function renderTaskItem(task) {
         </div>
         <div class="task-content">
             <div class="task-title ${task.completed ? 'completed' : ''}">
-                ${task.name || 'Untitled Task'}
+                ${
+                  task.priority === 'High'
+                    ? '<span class="priority-dot"></span>'
+                    : ''
+                }
+                ${task.name || task.description}
             </div>
-            <div class="task-description ${task.completed ? 'completed' : ''}">
-                ${task.description || ''}
-            </div>
+            ${
+              task.description && task.name
+                ? `<div class="task-description ${
+                    task.completed ? 'completed' : ''
+                  }">${task.description}</div>`
+                : ''
+            }
             <div class="task-meta">
                 <div class="task-project">
                     <span class="project-dot" style="background-color: ${
@@ -212,36 +284,329 @@ function renderTaskItem(task) {
  * Add event listeners to a task item
  */
 function addTaskItemListeners(taskElement) {
+  if (!taskElement) {
+    console.error('Task element is null');
+    return;
+  }
+
   // Make the entire task item clickable to open edit modal
   taskElement.addEventListener('click', function (e) {
     // Ignore clicks on the checkbox itself to prevent modal from opening
     if (e.target.type !== 'checkbox') {
       const taskId = this.dataset.id;
+      console.log('Task clicked, opening edit modal for:', taskId);
       openEditTaskModal(taskId);
     }
   });
 
   // Add event listener for the checkbox
   const checkbox = taskElement.querySelector('input[type="checkbox"]');
-  checkbox.addEventListener('click', function (e) {
-    // Stop event propagation to prevent modal from opening
-    e.stopPropagation();
-  });
+  if (checkbox) {
+    checkbox.addEventListener('click', function (e) {
+      // Stop event propagation to prevent modal from opening
+      e.stopPropagation();
+    });
 
-  checkbox.addEventListener('change', function (e) {
-    const taskId = taskElement.dataset.id;
-    updateTaskCompletionStatus(taskId, this.checked);
-  });
+    checkbox.addEventListener('change', function (e) {
+      const taskId = taskElement.dataset.id;
+      console.log(
+        'Checkbox changed for task:',
+        taskId,
+        'New value:',
+        this.checked
+      );
+      updateTaskCompletionStatus(taskId, this.checked);
+    });
+  }
+}
+
+/**
+ * Add a new task
+ */
+function addTask() {
+  // Get name from taskNameInput if it exists
+  const name = taskNameInput ? taskNameInput.value.trim() : '';
+
+  // Get description from taskDescriptionInput if it exists
+  const description = taskDescriptionInput
+    ? taskDescriptionInput.value.trim()
+    : '';
+
+  // For backward compatibility, use name as description if no description is provided
+  if (!name && !description) {
+    alert('Please enter a task name or description');
+    return;
+  }
+
+  const newTask = {
+    name: name,
+    description: description,
+    completed: taskStatusInput ? taskStatusInput.checked : false,
+    assignee: taskAssigneeInput ? taskAssigneeInput.value : '',
+    dueDate: taskDueDateInput ? taskDueDateInput.value : '',
+    priority: taskPriorityInput ? taskPriorityInput.value : 'Medium',
+    category: taskCategoryInput ? taskCategoryInput.value : 'other',
+    createdAt: firebase.firestore.Timestamp.now(),
+  };
+
+  console.log('Adding task from modal:', newTask);
+
+  // Save to Firebase
+  db.collection('tasks')
+    .add(newTask)
+    .then((docRef) => {
+      console.log('Task added with ID: ', docRef.id);
+
+      // Add to local array with Firebase ID
+      tasks.push({
+        id: docRef.id,
+        ...newTask,
+      });
+
+      // Update UI
+      if (typeof updateTeamMemberProgress === 'function') {
+        updateTeamMemberProgress();
+      }
+      if (typeof updateTeamMembers === 'function') {
+        updateTeamMembers();
+      }
+      updateTaskList();
+      if (typeof updateStatistics === 'function') {
+        updateStatistics();
+      }
+
+      // Close modal
+      if (typeof closeTaskModal === 'function') {
+        closeTaskModal();
+      } else if (taskModal) {
+        taskModal.style.display = 'none';
+      }
+    })
+    .catch((error) => {
+      console.error('Error adding task:', error);
+      alert('Error adding task. Please try again.');
+    });
+}
+
+/**
+ * Update an existing task
+ */
+function updateTask() {
+  const taskId = taskIdInput ? taskIdInput.value : '';
+  if (!taskId) {
+    console.error('No task ID found');
+    return;
+  }
+
+  // Get name from taskNameInput if it exists
+  const name = taskNameInput ? taskNameInput.value.trim() : '';
+
+  // Get description from taskDescriptionInput if it exists
+  const description = taskDescriptionInput
+    ? taskDescriptionInput.value.trim()
+    : '';
+
+  // For backward compatibility, use name as description if no description is provided
+  if (!name && !description) {
+    alert('Please enter a task name or description');
+    return;
+  }
+
+  const updatedTask = {
+    name: name,
+    description: description,
+    completed: taskStatusInput ? taskStatusInput.checked : false,
+    assignee: taskAssigneeInput ? taskAssigneeInput.value : '',
+    dueDate: taskDueDateInput ? taskDueDateInput.value : '',
+    priority: taskPriorityInput ? taskPriorityInput.value : 'Medium',
+    category: taskCategoryInput ? taskCategoryInput.value : 'other',
+    updatedAt: firebase.firestore.Timestamp.now(),
+  };
+
+  console.log('Updating task:', taskId, updatedTask);
+
+  // Update in Firebase
+  db.collection('tasks')
+    .doc(taskId)
+    .update(updatedTask)
+    .then(() => {
+      console.log('Task updated successfully');
+
+      // Update in local array
+      const taskIndex = tasks.findIndex((t) => t.id === taskId);
+      if (taskIndex !== -1) {
+        tasks[taskIndex] = {
+          id: taskId,
+          ...updatedTask,
+        };
+      }
+
+      // Update UI
+      if (typeof updateTeamMemberProgress === 'function') {
+        updateTeamMemberProgress();
+      }
+      if (typeof updateTeamMembers === 'function') {
+        updateTeamMembers();
+      }
+      updateTaskList();
+      if (typeof updateStatistics === 'function') {
+        updateStatistics();
+      }
+
+      // Close modal
+      if (typeof closeTaskModal === 'function') {
+        closeTaskModal();
+      } else if (taskModal) {
+        taskModal.style.display = 'none';
+      }
+    })
+    .catch((error) => {
+      console.error('Error updating task:', error);
+      alert('Error updating task. Please try again.');
+    });
+}
+
+/**
+ * Delete an existing task
+ */
+function deleteTask() {
+  const taskId = taskIdInput ? taskIdInput.value : '';
+  if (!taskId) {
+    console.error('No task ID found');
+    return;
+  }
+
+  if (confirm('Are you sure you want to delete this task?')) {
+    console.log('Deleting task:', taskId);
+
+    // Delete from Firebase
+    db.collection('tasks')
+      .doc(taskId)
+      .delete()
+      .then(() => {
+        console.log('Task deleted successfully');
+
+        // Remove from local array
+        tasks = tasks.filter((t) => t.id !== taskId);
+
+        // Update UI
+        if (typeof updateTeamMemberProgress === 'function') {
+          updateTeamMemberProgress();
+        }
+        if (typeof updateTeamMembers === 'function') {
+          updateTeamMembers();
+        }
+        updateTaskList();
+        if (typeof updateStatistics === 'function') {
+          updateStatistics();
+        }
+
+        // Close modal
+        if (typeof closeTaskModal === 'function') {
+          closeTaskModal();
+        } else if (taskModal) {
+          taskModal.style.display = 'none';
+        }
+      })
+      .catch((error) => {
+        console.error('Error deleting task:', error);
+        alert('Error deleting task. Please try again.');
+      });
+  }
+}
+
+/**
+ * Open add task modal with empty fields
+ */
+function openAddTaskModal() {
+  console.log('Opening Add Task Modal');
+
+  if (!taskModal) {
+    console.error('Task modal element not found');
+    return;
+  }
+
+  if (modalTitle) modalTitle.textContent = 'Add Task';
+  if (taskNameInput) taskNameInput.value = '';
+  if (taskDescriptionInput) taskDescriptionInput.value = '';
+  if (taskStatusInput) taskStatusInput.checked = false;
+  if (taskAssigneeInput) taskAssigneeInput.value = '';
+  if (taskDueDateInput) taskDueDateInput.value = '';
+  if (taskPriorityInput) taskPriorityInput.value = 'Medium';
+  if (taskCategoryInput) taskCategoryInput.value = 'other'; // Default to Other as requested
+  if (taskIdInput) taskIdInput.value = '';
+
+  // Hide delete button for new tasks
+  if (deleteTaskButton) {
+    deleteTaskButton.style.display = 'none';
+  }
+
+  // Show the modal
+  taskModal.style.display = 'flex';
+}
+
+/**
+ * Open edit task modal with modified fields
+ */
+function openEditTaskModal(taskId) {
+  console.log('Opening Edit Task Modal for task:', taskId);
+
+  const task = tasks.find((t) => t.id === taskId);
+  if (!task) {
+    console.error('Task not found:', taskId);
+    return;
+  }
+
+  if (!taskModal) {
+    console.error('Task modal element not found');
+    return;
+  }
+
+  if (modalTitle) modalTitle.textContent = 'Edit Task';
+  if (taskNameInput) taskNameInput.value = task.name || '';
+  if (taskDescriptionInput) taskDescriptionInput.value = task.description || '';
+  if (taskStatusInput) taskStatusInput.checked = task.completed || false;
+  if (taskAssigneeInput) taskAssigneeInput.value = task.assignee || '';
+  if (taskDueDateInput) taskDueDateInput.value = task.dueDate || '';
+  if (taskPriorityInput) taskPriorityInput.value = task.priority || 'Medium';
+
+  // Check both category and project fields
+  if (taskCategoryInput) {
+    taskCategoryInput.value = task.category || task.project || 'other';
+  }
+
+  if (taskIdInput) taskIdInput.value = task.id;
+
+  // Show delete button for existing tasks
+  if (deleteTaskButton) {
+    deleteTaskButton.style.display = 'block';
+  }
+
+  // Show the modal
+  taskModal.style.display = 'flex';
 }
 
 /**
  * Update task completion status directly in Firestore
  */
 function updateTaskCompletionStatus(taskId, completed) {
-  // Find the task in the local array and update it immediately
+  if (!taskId) {
+    console.error('No task ID provided');
+    return;
+  }
+
+  console.log('Updating task completion status:', taskId, 'to', completed);
+
+  // Find the task in the local array and update it immediately for UI responsiveness
   const taskIndex = tasks.findIndex((t) => t.id === taskId);
   if (taskIndex !== -1) {
     tasks[taskIndex].completed = completed;
+
+    // Update UI immediately for responsiveness
+    updateTaskList();
+    if (typeof updateStatistics === 'function') {
+      updateStatistics();
+    }
   }
 
   // Update in Firestore
@@ -249,21 +614,27 @@ function updateTaskCompletionStatus(taskId, completed) {
     .doc(taskId)
     .update({
       completed: completed,
-      updatedAt: new Date(),
+      updatedAt: firebase.firestore.Timestamp.now(),
     })
     .then(() => {
-      // Update UI immediately without waiting for Firestore response
-      updateTaskList();
-      updateStatistics();
-      updateTeamMemberProgress();
-      updateTeamMembers();
+      console.log('Task completion status updated successfully');
+      // Update team member progress
+      if (typeof updateTeamMemberProgress === 'function') {
+        updateTeamMemberProgress();
+      }
+      if (typeof updateTeamMembers === 'function') {
+        updateTeamMembers();
+      }
     })
     .catch((error) => {
-      console.error('Error updating task completion status: ', error);
-      // If there's an error, revert the local change and update UI
+      console.error('Error updating task completion status:', error);
+      // If there's an error, revert the local change
       if (taskIndex !== -1) {
         tasks[taskIndex].completed = !completed;
         updateTaskList();
+        if (typeof updateStatistics === 'function') {
+          updateStatistics();
+        }
       }
     });
 }
@@ -284,245 +655,70 @@ function attachCheckboxListeners() {
 }
 
 /**
- * Update tab styling based on task assignment
- */
-function updateTabsBasedOnAssignment() {
-  // Get current member filter
-  const currentMember = getCurrentMemberFilter();
-
-  // Remove 'has-assigned' class from all tabs
-  tabs.forEach((tab) => {
-    tab.classList.remove('has-assigned');
-  });
-
-  // Only proceed if a specific member is selected (not 'all')
-  if (currentMember === 'all') return;
-
-  // Find tasks assigned to the selected member
-  const memberTasks = tasks.filter((task) => task.assignee === currentMember);
-
-  // Track which statuses have tasks
-  const hasIncomplete = memberTasks.some((task) => !task.completed);
-  const hasCompleted = memberTasks.some((task) => task.completed);
-  const hasOverdue = memberTasks.some((task) => isTaskOverdue(task));
-
-  // Update tabs with indicators
-  if (hasIncomplete) {
-    document
-      .querySelector('.tab[data-filter="pending"]')
-      .classList.add('has-assigned');
-  }
-
-  if (hasCompleted) {
-    document
-      .querySelector('.tab[data-filter="completed"]')
-      .classList.add('has-assigned');
-  }
-
-  if (hasOverdue) {
-    document
-      .querySelector('.tab[data-filter="overdue"]')
-      .classList.add('has-assigned');
-  }
-}
-
-/**
- * Add a new task
- */
-function addTask() {
-  const name = taskNameInput.value.trim();
-  const description = taskDescriptionInput.value.trim();
-
-  if (!name) {
-    alert('Please enter a task name');
-    return;
-  }
-
-  const newTask = {
-    name: name,
-    description: description,
-    completed: false,
-    assignee: taskAssigneeInput.value,
-    dueDate: taskDueDateInput.value,
-    project: taskProjectInput.value,
-    createdAt: new Date(),
-  };
-
-  // Save to Firebase
-  db.collection('tasks')
-    .add(newTask)
-    .then((docRef) => {
-      // Add to local array with Firebase ID
-      tasks.push({
-        id: docRef.id,
-        ...newTask,
-      });
-
-      // Update UI
-      updateTeamMemberProgress();
-      updateTeamMembers();
-      updateTaskList();
-      updateStatistics();
-
-      // Close modal
-      closeTaskModal();
-    })
-    .catch((error) => {
-      console.error('Error adding task:', error);
-      alert('Error adding task. Please try again.');
-    });
-}
-
-/**
- * Update an existing task
- */
-function updateTask() {
-  const taskId = taskIdInput.value;
-  if (!taskId) return;
-
-  const name = taskNameInput.value.trim();
-  const description = taskDescriptionInput.value.trim();
-
-  if (!name) {
-    alert('Please enter a task name');
-    return;
-  }
-
-  const updatedTask = {
-    name: name,
-    description: description,
-    completed: taskStatusInput.checked,
-    assignee: taskAssigneeInput.value,
-    dueDate: taskDueDateInput.value,
-    project: taskProjectInput.value,
-    updatedAt: new Date(),
-  };
-
-  // Update in Firebase
-  db.collection('tasks')
-    .doc(taskId)
-    .update(updatedTask)
-    .then(() => {
-      // Update in local array
-      const taskIndex = tasks.findIndex((t) => t.id === taskId);
-      if (taskIndex !== -1) {
-        tasks[taskIndex] = {
-          id: taskId,
-          ...updatedTask,
-        };
-      }
-
-      // Update UI
-      updateTeamMemberProgress();
-      updateTeamMembers();
-      updateTaskList();
-      updateStatistics();
-
-      // Close modal
-      closeTaskModal();
-    })
-    .catch((error) => {
-      console.error('Error updating task:', error);
-      alert('Error updating task. Please try again.');
-    });
-}
-
-/**
- * Delete an existing task
- */
-function deleteTask() {
-  const taskId = taskIdInput.value;
-  if (!taskId) return;
-
-  if (confirm('Are you sure you want to delete this task?')) {
-    // Delete from Firebase
-    db.collection('tasks')
-      .doc(taskId)
-      .delete()
-      .then(() => {
-        // Remove from local array
-        tasks = tasks.filter((t) => t.id !== taskId);
-
-        // Update UI
-        updateTeamMemberProgress();
-        updateTeamMembers();
-        updateTaskList();
-        updateStatistics();
-
-        // Close modal
-        closeTaskModal();
-      })
-      .catch((error) => {
-        console.error('Error deleting task:', error);
-        alert('Error deleting task. Please try again.');
-      });
-  }
-}
-
-/**
- * Open edit task modal with modified fields
- */
-function openEditTaskModal(taskId) {
-  const task = tasks.find((t) => t.id === taskId);
-  if (!task) return;
-
-  modalTitle.textContent = 'Edit Task';
-  taskNameInput.value = task.name || '';
-  taskDescriptionInput.value = task.description || '';
-  taskStatusInput.checked = task.completed;
-  taskAssigneeInput.value = task.assignee || '';
-  taskDueDateInput.value = task.dueDate || '';
-  taskProjectInput.value = task.project || 'r3'; // Default to R3 if not set
-  taskIdInput.value = task.id;
-
-  // Show delete button for existing tasks
-  deleteTaskButton.style.display = 'block';
-
-  taskModal.style.display = 'flex';
-}
-
-/**
  * Initialize task-related event listeners
  */
 function initTasksListeners() {
+  console.log('Initializing tasks listeners');
+
   // Initialize projects
   initProjects();
 
   // Add task button
-  addTaskButton.addEventListener('click', openAddTaskModal);
+  if (addTaskButton) {
+    console.log('Adding click listener to Add Task button');
+    addTaskButton.addEventListener('click', openAddTaskModal);
+  } else {
+    console.error('Add Task button not found');
+  }
 
   // Save task button
-  saveTaskButton.addEventListener('click', function () {
-    const taskId = taskIdInput.value;
-    if (taskId) {
-      updateTask();
-    } else {
-      addTask();
-    }
-  });
+  if (saveTaskButton) {
+    console.log('Adding click listener to Save Task button');
+    saveTaskButton.addEventListener('click', function () {
+      const taskId = taskIdInput ? taskIdInput.value : '';
+      console.log('Save Task button clicked, task ID:', taskId);
+      if (taskId) {
+        updateTask();
+      } else {
+        addTask();
+      }
+    });
+  } else {
+    console.error('Save Task button not found');
+  }
 
   // Delete task button
-  deleteTaskButton.addEventListener('click', deleteTask);
+  if (deleteTaskButton) {
+    console.log('Adding click listener to Delete Task button');
+    deleteTaskButton.addEventListener('click', deleteTask);
+  } else {
+    console.error('Delete Task button not found');
+  }
 
   // Tab filtering
-  tabs.forEach((tab) => {
-    tab.addEventListener('click', function () {
-      tabs.forEach((t) => t.classList.remove('active'));
-      this.classList.add('active');
-      updateTaskList();
+  if (tabs && tabs.length > 0) {
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', function () {
+        tabs.forEach((t) => t.classList.remove('active'));
+        this.classList.add('active');
+        updateTaskList();
+      });
     });
-  });
+  } else {
+    console.error('Tab elements not found');
+  }
 
   // Member filtering
-  memberFilter.addEventListener('change', updateTaskList);
+  if (memberFilter) {
+    memberFilter.addEventListener('change', updateTaskList);
+  } else {
+    console.error('Member filter not found');
+  }
 
   // Project filtering
-  projectFilter.addEventListener('change', updateTaskList);
-
-  // Quick Add Task with project context
-  quickAddInput.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-      quickAddTask(this.value);
-    }
-  });
+  if (projectFilter) {
+    projectFilter.addEventListener('change', updateTaskList);
+  } else {
+    console.error('Project filter not found');
+  }
 }

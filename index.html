@@ -79,29 +79,30 @@
         </section>
 
         <!-- Tasks Section -->
-        <!-- Tasks Section -->
         <section class="tasks-section">
+            <!-- Tasks Header -->
             <div class="tasks-header">
-                <div class="tasks-title-container">
+                <div class="tasks-header-left">
                     <h2>Tasks</h2>
-                    <div class="project-selector">
-                        <select id="projectFilter" class="form-control">
-                            <option value="all">All Projects</option>
-                            <!-- Projects will be populated dynamically -->
-                        </select>
+                    <div class="task-filters">
+                        <div class="filter-dropdown">
+                            <select id="projectFilter" class="form-control">
+                                <option value="all">All Projects</option>
+                                <!-- Projects will be populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="filter-dropdown">
+                            <select id="memberFilter" class="form-control">
+                                <option value="all">All Members</option>
+                                <!-- Members will be populated dynamically -->
+                            </select>
+                        </div>
                     </div>
                 </div>
-                <div class="task-filters">
-                    <div class="member-filter">
-                        <select id="memberFilter" class="form-control">
-                            <option value="all">All Members</option>
-                            <!-- Members will be populated dynamically -->
-                        </select>
-                    </div>
-                    <button class="add-task-button" id="add-task-button">
-                        <span>+</span> Add Task
-                    </button>
-                </div>
+
+                <button class="add-task-button" id="add-task-button">
+                    <span>+</span> Add Task
+                </button>
             </div>
 
             <!-- Quick Add Task Input -->
@@ -110,19 +111,27 @@
                     placeholder="Type a task and press Enter to add quickly">
             </div>
 
-            <div class="tabs">
-                <div class="tab active" data-filter="all">All</div>
-                <div class="tab" data-filter="pending">Pending</div>
-                <div class="tab" data-filter="completed">Completed</div>
-                <div class="tab" data-filter="high-priority">High Priority</div>
-                <div class="tab" data-filter="overdue">Overdue</div>
+            <!-- Filter Controls Row -->
+            <div class="filter-controls">
+                <!-- Tabs for All, Pending, etc. -->
+                <div class="tabs">
+                    <div class="tab active" data-filter="all">All</div>
+                    <div class="tab" data-filter="pending">Pending</div>
+                    <div class="tab" data-filter="completed">Completed</div>
+                    <div class="tab" data-filter="high-priority">High Priority</div>
+                    <div class="tab" data-filter="overdue">Overdue</div>
+                </div>
             </div>
 
             <div class="task-list" id="task-list">
                 <!-- Task items will be populated dynamically -->
                 <div class="empty-state">
-                    <div class="empty-state-icon">📋</div>
-                    No tasks yet. Click "Add Task" to create your first task.
+                    <div class="empty-state-icon">✓</div>
+                    <div>No tasks yet</div>
+                    <div>Click "Add Task" to create your first task.</div>
+                    <button class="add-task-button empty-state-btn" onclick="openAddTaskModal()">
+                        <span>+</span> Add Task
+                    </button>
                 </div>
             </div>
         </section>
@@ -174,6 +183,15 @@
                     <div class="date-picker-container">
                         <input type="date" id="taskDueDate" class="form-control">
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="taskPriority">Priority</label>
+                    <select id="taskPriority" class="form-control">
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
                 </div>
 
                 <input type="hidden" id="taskId" value="">
@@ -240,6 +258,7 @@
 
         <!-- Main App -->
         <script src="js/app.js"></script>
+    </div>
 </body>
 
 </html>

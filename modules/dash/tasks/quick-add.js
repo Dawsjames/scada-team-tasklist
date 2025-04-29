@@ -3,17 +3,11 @@
 // DOM Elements
 const quickAddInput = document.getElementById('quickAddInput');
 
-// Get current project filter
-function getCurrentProjectFilter() {
-  return projectFilter.value;
-}
-
 // Quick Add Task Function
 function quickAddTask(description) {
   if (!description.trim()) return;
 
-  // Parse task name and description from input
-  // Format expected: "Task Name: Task Description"
+  // Parse input to separate name and description if format is "Name: Description"
   let name = description.trim();
   let taskDescription = '';
 
@@ -24,21 +18,27 @@ function quickAddTask(description) {
     taskDescription = description.substring(colonPos + 1).trim();
   }
 
+  // Create new task object
   const newTask = {
-    name: name,
-    description: taskDescription,
+    name: name, // Store the name part
+    description: taskDescription, // Store the description part (if any)
     completed: false,
-    assignee: '',
+    assignee: '', // Unassigned by default
     dueDate: '',
-    project:
-      getCurrentProjectFilter() === 'all' ? 'r3' : getCurrentProjectFilter(),
-    createdAt: new Date(),
+    priority: 'Medium', // Default priority
+    // Always default to 'other' for project/category as requested
+    category: 'other',
+    createdAt: firebase.firestore.Timestamp.now(), // Use Firestore timestamp
   };
+
+  console.log('Adding quick task:', newTask); // Debug log
 
   // Add to Firestore
   db.collection('tasks')
     .add(newTask)
     .then((docRef) => {
+      console.log('Quick task added with ID: ', docRef.id); // Debug log
+
       // Add task with Firestore ID to local array
       tasks.push({
         id: docRef.id,
@@ -50,7 +50,17 @@ function quickAddTask(description) {
 
       // Update UI
       updateTaskList();
-      updateStatistics();
+      if (typeof updateStatistics === 'function') {
+        updateStatistics();
+      }
+
+      // Also update team member progress and UI (if these functions exist)
+      if (typeof updateTeamMemberProgress === 'function') {
+        updateTeamMemberProgress();
+      }
+      if (typeof updateTeamMembers === 'function') {
+        updateTeamMembers();
+      }
     })
     .catch((error) => {
       console.error('Error adding quick task: ', error);
@@ -60,6 +70,13 @@ function quickAddTask(description) {
 
 // Initialize quick add task event listeners
 function initQuickAddListeners() {
+  if (!quickAddInput) {
+    console.error('Quick add input not found');
+    return;
+  }
+
+  console.log('Initializing quick add listeners');
+
   // Quick Add Task Input - Listen for Enter key press
   quickAddInput.addEventListener('keypress', function (e) {
     if (e.key === 'Enter') {
@@ -67,3 +84,7 @@ function initQuickAddListeners() {
     }
   });
 }
+
+// Make the function globally available
+window.quickAddTask = quickAddTask;
+window.initQuickAddListeners = initQuickAddListeners;
