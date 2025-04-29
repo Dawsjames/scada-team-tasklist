@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Dashboard - Dark Theme</title>
+    <!-- Firebase SDK CDN links -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Component CSS -->
+    <link rel="stylesheet" href="modules/dash/team-members/team-members.css">
+    <link rel="stylesheet" href="modules/dash/tasks/tasks.css">
+    <link rel="stylesheet" href="modules/dash/statistics/statistics.css">
+    <link rel="stylesheet" href="modules/dash/progress/progress.css">
+    <link rel="stylesheet" href="modules/dash/modals/modals.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Team Dashboard</h1>
+
+        <!-- Team Members Section -->
+        <section id="team-members-section">
+            <div>
+                <h2>Team Members</h2>
+                <button class="add-task-button" id="add-member-button">
+                    <span>+</span> Add Member
+                </button>
+            </div>
+            <div class="team-members" id="team-members">
+                <!-- Team members will be dynamically populated -->
+            </div>
+        </section>
+
+        <!-- Project Progress Section -->
+        <section class="progress-section">
+            <div class="progress-header">
+                <h2>Project Progress</h2>
+                <div id="progress-percentage">0%</div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar" style="width: 0%;"></div>
+            </div>
+            <div class="progress-text" id="progress-text">0 of 0 tasks completed</div>
+        </section>
+
+        <!-- Statistics Section -->
+        <section class="stats">
+            <div class="stat-card" id="total-tasks-card">
+                <div class="stat-left">
+                    <div class="stat-title">Total Tasks</div>
+                </div>
+                <div class="stat-value" id="total-tasks">0</div>
+            </div>
+
+            <div class="stat-card" id="high-priority-tasks-card">
+                <div class="stat-left">
+                    <div class="stat-title">High Priority</div>
+                </div>
+                <div class="stat-value" id="high-priority-tasks">0</div>
+            </div>
+
+            <div class="stat-card" id="overdue-tasks-card">
+                <div class="stat-left">
+                    <div class="stat-title">Overdue</div>
+                </div>
+                <div class="stat-value" id="overdue-tasks">0</div>
+            </div>
+
+            <div class="stat-card" id="unassigned-tasks-card">
+                <div class="stat-left">
+                    <div class="stat-title">Unassigned</div>
+                </div>
+                <div class="stat-value" id="unassigned-tasks">0</div>
+            </div>
+        </section>
+
+        <!-- Tasks Section -->
+        <!-- Tasks Section -->
+        <section class="tasks-section">
+            <div class="tasks-header">
+                <div class="tasks-title-container">
+                    <h2>Tasks</h2>
+                    <div class="project-selector">
+                        <select id="projectFilter" class="form-control">
+                            <option value="all">All Projects</option>
+                            <!-- Projects will be populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+                <div class="task-filters">
+                    <div class="member-filter">
+                        <select id="memberFilter" class="form-control">
+                            <option value="all">All Members</option>
+                            <!-- Members will be populated dynamically -->
+                        </select>
+                    </div>
+                    <button class="add-task-button" id="add-task-button">
+                        <span>+</span> Add Task
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Add Task Input -->
+            <div class="quick-add-container">
+                <input type="text" id="quickAddInput" class="quick-add-input"
+                    placeholder="Type a task and press Enter to add quickly">
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" data-filter="all">All</div>
+                <div class="tab" data-filter="pending">Pending</div>
+                <div class="tab" data-filter="completed">Completed</div>
+                <div class="tab" data-filter="high-priority">High Priority</div>
+                <div class="tab" data-filter="overdue">Overdue</div>
+            </div>
+
+            <div class="task-list" id="task-list">
+                <!-- Task items will be populated dynamically -->
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    No tasks yet. Click "Add Task" to create your first task.
+                </div>
+            </div>
+        </section>
+
+        <!-- Task Modal (Updated with Project Field) -->
+        <div id="taskModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modal-title">Add Task</h2>
+                    <button class="close-button" id="close-modal">&times;</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="taskName">Name</label>
+                    <input type="text" id="taskName" class="form-control" placeholder="Enter task name">
+                </div>
+
+                <div class="form-group">
+                    <label for="taskDescription">Description</label>
+                    <textarea id="taskDescription" class="form-control" placeholder="Enter task description"
+                        rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Status</label>
+                    <div class="form-check">
+                        <input type="checkbox" id="taskStatus">
+                        <label for="taskStatus">Completed</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="taskAssignee">Assignee</label>
+                    <select id="taskAssignee" class="form-control">
+                        <option value="">Unassigned</option>
+                        <!-- Team members will be populated dynamically -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="taskProject">Project</label>
+                    <select id="taskProject" class="form-control">
+                        <!-- Projects will be populated dynamically -->
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="taskDueDate">Due Date</label>
+                    <div class="date-picker-container">
+                        <input type="date" id="taskDueDate" class="form-control">
+                    </div>
+                </div>
+
+                <input type="hidden" id="taskId" value="">
+
+                <div class="modal-footer">
+                    <button id="deleteTaskButton" class="btn btn-danger">Delete Task</button>
+                    <button id="saveTaskButton" class="btn btn-primary">Save Task</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Member Modal -->
+        <div id="memberModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="member-modal-title">Add Team Member</h2>
+                    <button class="close-button" id="close-member-modal">&times;</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="memberName">Name</label>
+                    <input type="text" id="memberName" class="form-control" placeholder="Enter name">
+                </div>
+
+                <div class="form-group">
+                    <label for="memberRole">Role</label>
+                    <input type="text" id="memberRole" class="form-control" placeholder="Enter role (optional)">
+                </div>
+
+                <div class="form-group">
+                    <label for="memberStatus">Status</label>
+                    <select id="memberStatus" class="form-control">
+                        <option value="online">Online</option>
+                        <option value="busy">Busy</option>
+                        <option value="offline">Offline</option>
+                    </select>
+                </div>
+
+                <input type="hidden" id="memberId" value="">
+
+                <div class="modal-footer">
+                    <button id="deleteMemberButton" class="btn btn-danger">Delete Member</button>
+                    <button id="saveMemberButton" class="btn btn-primary">Save Member</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- JavaScript Configuration -->
+        <script src="js/config.js"></script>
+        <script src="js/firebase-init.js"></script>
+
+        <!-- Utilities -->
+        <script src="js/utils/helpers.js"></script>
+        <script src="js/utils/ui-updates.js"></script>
+
+        <!-- Components -->
+        <script src="modules/dash/team-members/team-members.js"></script>
+        <script src="modules/dash/tasks/tasks.js"></script>
+        <script src="modules/dash/tasks/quick-add.js"></script>
+        <script src="modules/dash/statistics/statistics.js"></script>
+        <script src="modules/dash/progress/progress.js"></script>
+        <script src="modules/dash/modals/modals.js"></script>
+
+
+        <!-- Main App -->
+        <script src="js/app.js"></script>
+</body>
+
+</html>
