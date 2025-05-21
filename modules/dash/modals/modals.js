@@ -20,7 +20,7 @@ function openAddTaskModal() {
   const modalTitle = document.getElementById('modal-title');
   const taskNameInput = document.getElementById('taskName');
   const taskDescriptionInput = document.getElementById('taskDescription');
-  const taskStatusInput = document.getElementById('taskStatus');
+  const taskStatusSelect = document.getElementById('taskStatus'); // Changed to select element
   const taskAssigneeInput = document.getElementById('taskAssignee');
   const taskDueDateInput = document.getElementById('taskDueDate');
   const taskPriorityInput = document.getElementById('taskPriority');
@@ -32,11 +32,11 @@ function openAddTaskModal() {
   if (modalTitle) modalTitle.textContent = 'Add Task';
   if (taskNameInput) taskNameInput.value = '';
   if (taskDescriptionInput) taskDescriptionInput.value = '';
-  if (taskStatusInput) taskStatusInput.checked = false;
+  if (taskStatusSelect) taskStatusSelect.value = 'Pending'; // Default to Pending
   if (taskAssigneeInput) taskAssigneeInput.value = '';
   if (taskDueDateInput) taskDueDateInput.value = '';
   if (taskPriorityInput) taskPriorityInput.value = 'Medium';
-  if (taskProjectInput) taskProjectInput.value = 'other'; // Default to other as requested
+  if (taskProjectInput) taskProjectInput.value = 'frontend'; // Default to Frontend
   if (taskIdInput) taskIdInput.value = '';
 
   // Hide delete button
@@ -69,7 +69,7 @@ function openEditTaskModal(taskId) {
   const modalTitle = document.getElementById('modal-title');
   const taskNameInput = document.getElementById('taskName');
   const taskDescriptionInput = document.getElementById('taskDescription');
-  const taskStatusInput = document.getElementById('taskStatus');
+  const taskStatusSelect = document.getElementById('taskStatus'); // Changed to select element
   const taskAssigneeInput = document.getElementById('taskAssignee');
   const taskDueDateInput = document.getElementById('taskDueDate');
   const taskPriorityInput = document.getElementById('taskPriority');
@@ -81,19 +81,35 @@ function openEditTaskModal(taskId) {
   if (modalTitle) modalTitle.textContent = 'Edit Task';
   if (taskNameInput) taskNameInput.value = task.name || '';
   if (taskDescriptionInput) taskDescriptionInput.value = task.description || '';
-  if (taskStatusInput) taskStatusInput.checked = task.completed || false;
+  
+  // Set status based on new or legacy data structure
+  if (taskStatusSelect) {
+    if (task.status) {
+      taskStatusSelect.value = task.status;
+    } else {
+      // Legacy data conversion - if task has completed property
+      taskStatusSelect.value = task.completed ? 'Completed' : 'Pending';
+    }
+  }
+  
   if (taskAssigneeInput) taskAssigneeInput.value = task.assignee || '';
   if (taskDueDateInput) taskDueDateInput.value = task.dueDate || '';
   if (taskPriorityInput) taskPriorityInput.value = task.priority || 'Medium';
 
   // Check both category and project fields
   if (taskProjectInput) {
-    taskProjectInput.value = task.category || task.project || 'other';
+    const category = task.category || task.project;
+    if (category === 'r3' || category === 'r8-250' || category === 'r8-125' || category === 'other') {
+      // Convert old categories to new ones (example mapping)
+      taskProjectInput.value = category === 'r3' || category === 'r8-250' ? 'frontend' : 'backend';
+    } else {
+      taskProjectInput.value = category || 'frontend';
+    }
   }
 
   if (taskIdInput) taskIdInput.value = task.id;
 
-  // Show delete button
+  // Show delete button for existing tasks
   if (deleteTaskButton) deleteTaskButton.style.display = 'block';
 
   // Show the modal

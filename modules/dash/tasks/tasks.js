@@ -11,7 +11,7 @@ const modalTitle = document.getElementById('modal-title');
 // Added taskNameInput to handle the name field in the modal
 const taskNameInput = document.getElementById('taskName');
 const taskDescriptionInput = document.getElementById('taskDescription');
-const taskStatusInput = document.getElementById('taskStatus');
+const taskStatusSelect = document.getElementById('taskStatus'); // Changed to select instead of checkbox
 const taskAssigneeInput = document.getElementById('taskAssignee');
 const taskDueDateInput = document.getElementById('taskDueDate');
 const taskPriorityInput = document.getElementById('taskPriority');
@@ -20,12 +20,30 @@ const taskIdInput = document.getElementById('taskId');
 const saveTaskButton = document.getElementById('saveTaskButton');
 const deleteTaskButton = document.getElementById('deleteTaskButton');
 
-// Project data
+// Store current filters for persistence during task operations
+let currentFilters = {
+  tab: 'all',
+  member: 'all',
+  project: 'all'
+};
+
+// Task status sequence for cycling
+const statusSequence = ['Pending', 'To be Deployed', 'Completed'];
+
+// Map tab data-filter attributes to status values (for consistent comparison)
+const tabToStatusMap = {
+  'pending': 'Pending',
+  'to-be-deployed': 'To be Deployed',
+  'completed': 'Completed',
+  'all': 'all',
+  'high-priority': 'high-priority',
+  'overdue': 'overdue'
+};
+
+// Project data - Updated to only include Frontend and Backend
 const projects = [
-  { id: 'r3', name: 'R3', color: 'var(--planning-color)' },
-  { id: 'r8-250', name: 'R8 250', color: 'var(--design-color)' },
-  { id: 'r8-125', name: 'R8 125', color: 'var(--development-color)' },
-  { id: 'other', name: 'Other', color: 'var(--warning-color)' },
+  { id: 'frontend', name: 'Frontend', color: 'var(--design-color)' },
+  { id: 'backend', name: 'Backend', color: 'var(--development-color)' },
 ];
 
 /**
@@ -37,6 +55,8 @@ function initProjects() {
     console.error('Project filter or task category input not found');
     return;
   }
+
+  console.log('Initializing projects');
 
   // Populate project filter dropdown
   projectFilter.innerHTML = '<option value="all">All Projects</option>';
@@ -63,7 +83,7 @@ function initProjects() {
  * Get project by ID
  */
 function getProject(projectId) {
-  return projects.find((p) => p.id === projectId) || projects[3]; // Default to "Other"
+  return projects.find((p) => p.id === projectId) || projects[0]; // Default to Frontend
 }
 
 /**
@@ -76,17 +96,21 @@ function updateTaskList() {
     return;
   }
 
-  // Get active filters
-  const activeTabFilter = getCurrentActiveTab();
-  const activeMemberFilter = getCurrentMemberFilter();
-  const activeProjectFilter = getCurrentProjectFilter();
+  // Get active filters and store them
+  currentFilters.tab = getCurrentActiveTab();
+  currentFilters.member = getCurrentMemberFilter();
+  currentFilters.project = getCurrentProjectFilter();
+
+  console.log('Updating task list with filters:', currentFilters);
 
   // Apply filters to tasks
   let filteredTasks = filterTasks(
-    activeTabFilter,
-    activeMemberFilter,
-    activeProjectFilter
+    currentFilters.tab,
+    currentFilters.member,
+    currentFilters.project
   );
+
+  console.log(`Found ${filteredTasks.length} tasks matching filters`);
 
   // Clear current task list
   taskList.innerHTML = '';
@@ -100,8 +124,7 @@ function updateTaskList() {
   // Render each task
   filteredTasks.forEach((task) => renderTaskItem(task));
 
-  // Update tab highlights and attach event listeners
-  attachCheckboxListeners();
+  // Update tab highlights
   updateTabsBasedOnTask();
 }
 
@@ -113,40 +136,79 @@ function getCurrentProjectFilter() {
 }
 
 /**
+ * Get current member filter
+ */
+function getCurrentMemberFilter() {
+  return memberFilter ? memberFilter.value : 'all';
+}
+
+/**
+ * Get current active tab
+ */
+function getCurrentActiveTab() {
+  const activeTab = document.querySelector('.tab.active');
+  if (!activeTab) {
+    console.error('No active tab found');
+    return 'all'; // Default to 'all' if no active tab
+  }
+  
+  const filter = activeTab.getAttribute('data-filter');
+  console.log('Active tab filter:', filter);
+  return filter || 'all';
+}
+
+/**
  * Filter tasks based on tab, member, and project filters
  */
 function filterTasks(tabFilter, memberFilter, projectFilter) {
-  let result = [...tasks];
+  console.log('Filtering tasks:', { tabFilter, memberFilter, projectFilter });
+  console.log('Total tasks before filtering:', tasks.length);
+  
+  // Deep clone the tasks array to avoid mutation issues
+  let result = JSON.parse(JSON.stringify(tasks));
+  
+  // Map tab filter to status if needed
+  const statusFilter = tabToStatusMap[tabFilter] || tabFilter;
 
-  // Apply tab filter
-  switch (tabFilter) {
-    case 'pending':
-      result = result.filter((task) => !task.completed);
-      break;
-    case 'completed':
-      result = result.filter((task) => task.completed);
-      break;
-    case 'high-priority':
-      result = result.filter((task) => task.priority === 'High');
-      break;
-    case 'overdue':
-      result = result.filter((task) => isTaskOverdue(task));
-      break;
-    // 'all' case doesn't need filtering
+  // Apply tab filter based on new status system
+  if (tabFilter !== 'all') {
+    switch (tabFilter) {
+      case 'pending':
+        result = result.filter((task) => task.status === 'Pending');
+        break;
+      case 'to-be-deployed':
+        result = result.filter((task) => task.status === 'To be Deployed');
+        break;
+      case 'completed':
+        result = result.filter((task) => task.status === 'Completed');
+        break;
+      case 'high-priority':
+        result = result.filter((task) => task.priority === 'High');
+        break;
+      case 'overdue':
+        result = result.filter((task) => isTaskOverdue(task));
+        break;
+    }
   }
+
+  console.log(`After tab filter (${tabFilter}):`, result.length);
 
   // Apply member filter if not 'all'
   if (memberFilter !== 'all') {
     result = result.filter((task) => task.assignee === memberFilter);
+    console.log(`After member filter (${memberFilter}):`, result.length);
   }
 
   // Apply project filter if not 'all'
   if (projectFilter !== 'all') {
     // Check for both category and project fields
     result = result.filter(
-      (task) =>
-        task.category === projectFilter || task.project === projectFilter
+      (task) => {
+        const taskCategory = task.category || task.project || 'frontend';
+        return taskCategory === projectFilter;
+      }
     );
+    console.log(`After project filter (${projectFilter}):`, result.length);
   }
 
   return result;
@@ -169,14 +231,21 @@ function updateTabsBasedOnTask() {
   const memberTasks = tasks.filter((task) => task.assignee === currentMember);
 
   // Track which statuses have tasks
-  const hasIncomplete = memberTasks.some((task) => !task.completed);
-  const hasCompleted = memberTasks.some((task) => task.completed);
+  const hasPending = memberTasks.some((task) => task.status === 'Pending');
+  const hasToBeDeploy = memberTasks.some((task) => task.status === 'To be Deployed');
+  const hasCompleted = memberTasks.some((task) => task.status === 'Completed');
   const hasOverdue = memberTasks.some((task) => isTaskOverdue(task));
 
   // Update tabs with indicators
-  if (hasIncomplete) {
+  if (hasPending) {
     document
       .querySelector('.tab[data-filter="pending"]')
+      ?.classList.add('has-assigned');
+  }
+  
+  if (hasToBeDeploy) {
+    document
+      .querySelector('.tab[data-filter="to-be-deployed"]')
       ?.classList.add('has-assigned');
   }
 
@@ -211,29 +280,134 @@ function renderEmptyState() {
 }
 
 /**
- * Render a single task item in the list with compact design
+ * Cycle task status to next in sequence
+ */
+function cycleTaskStatus(taskId, event) {
+  // Stop event propagation to prevent opening the task edit modal
+  event.stopPropagation();
+  
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  
+  // Get current status or default to 'Pending'
+  const currentStatus = task.status || 'Pending';
+  
+  // Find current index in sequence
+  const currentIndex = statusSequence.indexOf(currentStatus);
+  
+  // Calculate next status (cycle back to beginning if at end)
+  const nextIndex = (currentIndex + 1) % statusSequence.length;
+  const nextStatus = statusSequence[nextIndex];
+  
+  console.log(`Cycling task ${taskId} from ${currentStatus} to ${nextStatus}`);
+  
+  // Update status
+  updateTaskStatus(taskId, nextStatus);
+}
+
+/**
+ * Set task to completed status immediately
+ */
+function completeTask(taskId, event) {
+  // Stop event propagation to prevent opening the task edit modal
+  event.stopPropagation();
+  
+  console.log(`Completing task ${taskId}`);
+  
+  // Update status to Completed
+  updateTaskStatus(taskId, 'Completed');
+}
+
+/**
+ * Update task status in both local memory and Firebase
+ */
+function updateTaskStatus(taskId, newStatus) {
+  // Find task in local array
+  const taskIndex = tasks.findIndex(t => t.id === taskId);
+  if (taskIndex === -1) return;
+  
+  console.log(`Updating task ${taskId} status to ${newStatus}`);
+  
+  // Update status in local array
+  tasks[taskIndex].status = newStatus;
+  
+  // For backwards compatibility
+  tasks[taskIndex].completed = (newStatus === 'Completed');
+  
+  // Update UI immediately for better user experience
+  updateTaskList();
+  if (typeof updateStatistics === 'function') {
+    updateStatistics();
+  }
+  
+  // Update in Firebase
+  db.collection('tasks')
+    .doc(taskId)
+    .update({
+      status: newStatus,
+      completed: (newStatus === 'Completed'),
+      updatedAt: firebase.firestore.Timestamp.now()
+    })
+    .then(() => {
+      console.log(`Task ${taskId} status updated to ${newStatus} in Firestore`);
+      
+      // Update team data if needed
+      if (typeof updateTeamMemberProgress === 'function') {
+        updateTeamMemberProgress();
+      }
+      if (typeof updateTeamMembers === 'function') {
+        updateTeamMembers();
+      }
+    })
+    .catch(error => {
+      console.error('Error updating task status:', error);
+      
+      // Revert local change if Firebase update fails
+      if (taskIndex !== -1) {
+        const originalStatus = tasks[taskIndex].status;
+        tasks[taskIndex].status = originalStatus;
+        tasks[taskIndex].completed = (originalStatus === 'Completed');
+        
+        // Refresh the UI with original data
+        updateTaskList();
+        if (typeof updateStatistics === 'function') {
+          updateStatistics();
+        }
+      }
+    });
+}
+
+/**
+ * Render a single task item in the list with compact design and status buttons
  */
 function renderTaskItem(task) {
   // Create task element
   const taskElement = document.createElement('div');
   taskElement.className = 'task-item';
   taskElement.dataset.id = task.id;
+  taskElement.dataset.status = task.status || 'Pending'; // Add status as data attribute
 
   // Find assignee information
   const assignee = teamMembers.find((member) => member.name === task.assignee);
   const assigneeInitial = assignee ? getInitial(assignee.name) : '';
 
   // Get project information - check both category and project fields
-  const projectId = task.category || task.project || 'other';
+  const projectId = task.category || task.project || 'frontend';
   const project = getProject(projectId);
+  
+  // Ensure task has a status (for legacy data)
+  const taskStatus = task.status || (task.completed ? 'Completed' : 'Pending');
+  
+  // Determine task status class - convert spaces to dashes for CSS
+  const statusClass = taskStatus.toLowerCase().replace(/\s+/g, '-');
 
-  // Build task HTML with redesigned layout
+  // Build task HTML with redesigned layout and status buttons
   taskElement.innerHTML = `
-        <div class="task-checkbox">
-            <input type="checkbox" ${task.completed ? 'checked' : ''}>
+        <div class="task-status-indicator status-${statusClass}">
+            <span class="status-dot"></span>
         </div>
         <div class="task-content">
-            <div class="task-title ${task.completed ? 'completed' : ''}">
+            <div class="task-title ${statusClass}">
                 ${
                   task.priority === 'High'
                     ? '<span class="priority-dot"></span>'
@@ -243,9 +417,7 @@ function renderTaskItem(task) {
             </div>
             ${
               task.description && task.name
-                ? `<div class="task-description ${
-                    task.completed ? 'completed' : ''
-                  }">${task.description}</div>`
+                ? `<div class="task-description ${statusClass}">${task.description}</div>`
                 : ''
             }
             <div class="task-meta">
@@ -255,6 +427,7 @@ function renderTaskItem(task) {
                     }"></span>
                     ${project.name}
                 </div>
+                <div class="task-status">${taskStatus}</div>
                 ${
                   task.dueDate
                     ? `<div class="task-date">${new Date(
@@ -263,6 +436,10 @@ function renderTaskItem(task) {
                     : ''
                 }
             </div>
+        </div>
+        <div class="task-actions">
+            <button class="task-cycle-btn" title="Cycle Status">⟳</button>
+            <button class="task-complete-btn" title="Complete Task">✓</button>
         </div>
         <div class="task-assignee">
             ${
@@ -289,35 +466,28 @@ function addTaskItemListeners(taskElement) {
     return;
   }
 
-  // Make the entire task item clickable to open edit modal
+  const taskId = taskElement.dataset.id;
+  
+  // Add cycle button listener
+  const cycleButton = taskElement.querySelector('.task-cycle-btn');
+  if (cycleButton) {
+    cycleButton.addEventListener('click', (e) => cycleTaskStatus(taskId, e));
+  }
+  
+  // Add complete button listener
+  const completeButton = taskElement.querySelector('.task-complete-btn');
+  if (completeButton) {
+    completeButton.addEventListener('click', (e) => completeTask(taskId, e));
+  }
+
+  // Make the entire task item clickable to open edit modal (except buttons)
   taskElement.addEventListener('click', function (e) {
-    // Ignore clicks on the checkbox itself to prevent modal from opening
-    if (e.target.type !== 'checkbox') {
-      const taskId = this.dataset.id;
+    // Only open modal if we didn't click on a button
+    if (!e.target.closest('button')) {
       console.log('Task clicked, opening edit modal for:', taskId);
       openEditTaskModal(taskId);
     }
   });
-
-  // Add event listener for the checkbox
-  const checkbox = taskElement.querySelector('input[type="checkbox"]');
-  if (checkbox) {
-    checkbox.addEventListener('click', function (e) {
-      // Stop event propagation to prevent modal from opening
-      e.stopPropagation();
-    });
-
-    checkbox.addEventListener('change', function (e) {
-      const taskId = taskElement.dataset.id;
-      console.log(
-        'Checkbox changed for task:',
-        taskId,
-        'New value:',
-        this.checked
-      );
-      updateTaskCompletionStatus(taskId, this.checked);
-    });
-  }
 }
 
 /**
@@ -341,11 +511,11 @@ function addTask() {
   const newTask = {
     name: name,
     description: description,
-    completed: taskStatusInput ? taskStatusInput.checked : false,
+    status: taskStatusSelect ? taskStatusSelect.value : 'Pending', // Use the new status field
     assignee: taskAssigneeInput ? taskAssigneeInput.value : '',
     dueDate: taskDueDateInput ? taskDueDateInput.value : '',
     priority: taskPriorityInput ? taskPriorityInput.value : 'Medium',
-    category: taskCategoryInput ? taskCategoryInput.value : 'other',
+    category: taskCategoryInput ? taskCategoryInput.value : 'frontend',
     createdAt: firebase.firestore.Timestamp.now(),
   };
 
@@ -415,11 +585,11 @@ function updateTask() {
   const updatedTask = {
     name: name,
     description: description,
-    completed: taskStatusInput ? taskStatusInput.checked : false,
+    status: taskStatusSelect ? taskStatusSelect.value : 'Pending', // Use new status field
     assignee: taskAssigneeInput ? taskAssigneeInput.value : '',
     dueDate: taskDueDateInput ? taskDueDateInput.value : '',
     priority: taskPriorityInput ? taskPriorityInput.value : 'Medium',
-    category: taskCategoryInput ? taskCategoryInput.value : 'other',
+    category: taskCategoryInput ? taskCategoryInput.value : 'frontend',
     updatedAt: firebase.firestore.Timestamp.now(),
   };
 
@@ -529,11 +699,11 @@ function openAddTaskModal() {
   if (modalTitle) modalTitle.textContent = 'Add Task';
   if (taskNameInput) taskNameInput.value = '';
   if (taskDescriptionInput) taskDescriptionInput.value = '';
-  if (taskStatusInput) taskStatusInput.checked = false;
+  if (taskStatusSelect) taskStatusSelect.value = 'Pending'; // Set default status to Pending
   if (taskAssigneeInput) taskAssigneeInput.value = '';
   if (taskDueDateInput) taskDueDateInput.value = '';
   if (taskPriorityInput) taskPriorityInput.value = 'Medium';
-  if (taskCategoryInput) taskCategoryInput.value = 'other'; // Default to Other as requested
+  if (taskCategoryInput) taskCategoryInput.value = 'frontend'; // Default to Frontend
   if (taskIdInput) taskIdInput.value = '';
 
   // Hide delete button for new tasks
@@ -565,14 +735,30 @@ function openEditTaskModal(taskId) {
   if (modalTitle) modalTitle.textContent = 'Edit Task';
   if (taskNameInput) taskNameInput.value = task.name || '';
   if (taskDescriptionInput) taskDescriptionInput.value = task.description || '';
-  if (taskStatusInput) taskStatusInput.checked = task.completed || false;
+  
+  // Set status based on new or legacy data structure
+  if (taskStatusSelect) {
+    if (task.status) {
+      taskStatusSelect.value = task.status;
+    } else {
+      // Legacy data conversion - if task has completed property
+      taskStatusSelect.value = task.completed ? 'Completed' : 'Pending';
+    }
+  }
+  
   if (taskAssigneeInput) taskAssigneeInput.value = task.assignee || '';
   if (taskDueDateInput) taskDueDateInput.value = task.dueDate || '';
   if (taskPriorityInput) taskPriorityInput.value = task.priority || 'Medium';
 
   // Check both category and project fields
   if (taskCategoryInput) {
-    taskCategoryInput.value = task.category || task.project || 'other';
+    const category = task.category || task.project;
+    if (category === 'r3' || category === 'r8-250' || category === 'r8-125' || category === 'other') {
+      // Convert old categories to new ones (example mapping)
+      taskCategoryInput.value = category === 'r3' || category === 'r8-250' ? 'frontend' : 'backend';
+    } else {
+      taskCategoryInput.value = category || 'frontend';
+    }
   }
 
   if (taskIdInput) taskIdInput.value = task.id;
@@ -587,70 +773,79 @@ function openEditTaskModal(taskId) {
 }
 
 /**
- * Update task completion status directly in Firestore
+ * Fix tabs if they don't have proper data-filter attributes
  */
-function updateTaskCompletionStatus(taskId, completed) {
-  if (!taskId) {
-    console.error('No task ID provided');
+function ensureTabsHaveDataFilters() {
+  console.log('Checking and fixing tab data-filter attributes');
+  
+  if (!tabs || tabs.length === 0) {
+    console.error('No tabs found');
     return;
   }
-
-  console.log('Updating task completion status:', taskId, 'to', completed);
-
-  // Find the task in the local array and update it immediately for UI responsiveness
-  const taskIndex = tasks.findIndex((t) => t.id === taskId);
-  if (taskIndex !== -1) {
-    tasks[taskIndex].completed = completed;
-
-    // Update UI immediately for responsiveness
-    updateTaskList();
-    if (typeof updateStatistics === 'function') {
-      updateStatistics();
+  
+  // Expected tab filters
+  const expectedFilters = ['all', 'pending', 'to-be-deployed', 'completed', 'high-priority', 'overdue'];
+  
+  // Check each tab
+  tabs.forEach(tab => {
+    const filter = tab.getAttribute('data-filter');
+    if (!filter) {
+      // Try to determine filter from tab text content
+      const text = tab.textContent.trim().toLowerCase();
+      
+      if (text.includes('all')) {
+        tab.setAttribute('data-filter', 'all');
+      } else if (text.includes('pending')) {
+        tab.setAttribute('data-filter', 'pending');
+      } else if (text.includes('to be deployed') || text.includes('deploy')) {
+        tab.setAttribute('data-filter', 'to-be-deployed');
+      } else if (text.includes('completed')) {
+        tab.setAttribute('data-filter', 'completed');
+      } else if (text.includes('high') || text.includes('priority')) {
+        tab.setAttribute('data-filter', 'high-priority');
+      } else if (text.includes('overdue')) {
+        tab.setAttribute('data-filter', 'overdue');
+      } else {
+        // Default to 'all' if we can't determine
+        tab.setAttribute('data-filter', 'all');
+      }
+      
+      console.log(`Added missing data-filter "${tab.getAttribute('data-filter')}" to tab with text: ${text}`);
     }
+  });
+  
+  // Make sure at least one tab is active
+  const hasActiveTab = Array.from(tabs).some(tab => tab.classList.contains('active'));
+  if (!hasActiveTab && tabs.length > 0) {
+    tabs[0].classList.add('active');
+    console.log('No active tab found - set first tab as active');
   }
-
-  // Update in Firestore
-  db.collection('tasks')
-    .doc(taskId)
-    .update({
-      completed: completed,
-      updatedAt: firebase.firestore.Timestamp.now(),
-    })
-    .then(() => {
-      console.log('Task completion status updated successfully');
-      // Update team member progress
-      if (typeof updateTeamMemberProgress === 'function') {
-        updateTeamMemberProgress();
-      }
-      if (typeof updateTeamMembers === 'function') {
-        updateTeamMembers();
-      }
-    })
-    .catch((error) => {
-      console.error('Error updating task completion status:', error);
-      // If there's an error, revert the local change
-      if (taskIndex !== -1) {
-        tasks[taskIndex].completed = !completed;
-        updateTaskList();
-        if (typeof updateStatistics === 'function') {
-          updateStatistics();
-        }
-      }
-    });
 }
 
 /**
- * Attach event listeners to task checkboxes
+ * Normalize task status values across all tasks for consistent filtering
  */
-function attachCheckboxListeners() {
-  const checkboxes = document.querySelectorAll(
-    '.task-item input[type="checkbox"]'
-  );
-  checkboxes.forEach((checkbox) => {
-    checkbox.addEventListener('change', function () {
-      const taskId = this.closest('.task-item').dataset.id;
-      updateTaskCompletionStatus(taskId, this.checked);
-    });
+function normalizeTaskStatuses() {
+  console.log('Normalizing task status values for consistent filtering');
+  
+  // Fix any inconsistent status values
+  tasks.forEach(task => {
+    if (!task.status) {
+      // Convert legacy format
+      task.status = task.completed ? 'Completed' : 'Pending';
+    }
+    
+    // Ensure consistent status formatting
+    if (task.status === 'to be deployed' || task.status === 'to-be-deployed') {
+      task.status = 'To be Deployed';
+    } else if (task.status === 'completed' || task.status === 'done') {
+      task.status = 'Completed';
+    } else if (task.status === 'pending' || task.status === 'todo' || task.status === 'to-do') {
+      task.status = 'Pending';
+    }
+    
+    // Ensure completed flag is consistent with status
+    task.completed = (task.status === 'Completed');
   });
 }
 
@@ -659,6 +854,12 @@ function attachCheckboxListeners() {
  */
 function initTasksListeners() {
   console.log('Initializing tasks listeners');
+
+  // Fix tab data-filter attributes
+  ensureTabsHaveDataFilters();
+  
+  // Normalize status values in tasks
+  normalizeTaskStatuses();
 
   // Initialize projects
   initProjects();

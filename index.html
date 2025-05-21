@@ -117,6 +117,7 @@
                 <div class="tabs">
                     <div class="tab active" data-filter="all">All</div>
                     <div class="tab" data-filter="pending">Pending</div>
+                    <div class="tab" data-filter="to-be-deployed">To be Deployed</div>
                     <div class="tab" data-filter="completed">Completed</div>
                     <div class="tab" data-filter="high-priority">High Priority</div>
                     <div class="tab" data-filter="overdue">Overdue</div>
@@ -128,72 +129,72 @@
             </div>
         </section>
 
-        <!-- Task Modal (Updated with Project Field) -->
+        <!-- Task Modal -->
         <div id="taskModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 id="modal-title">Add Task</h2>
-                    <button class="close-button" id="close-modal">&times;</button>
-                </div>
-
-                <div class="form-group">
-                    <label for="taskName">Name</label>
-                    <input type="text" id="taskName" class="form-control" placeholder="Enter task name">
-                </div>
-
-                <div class="form-group">
-                    <label for="taskDescription">Description</label>
-                    <textarea id="taskDescription" class="form-control" placeholder="Enter task description"
-                        rows="3"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Status</label>
-                    <div class="form-check">
-                        <input type="checkbox" id="taskStatus">
-                        <label for="taskStatus">Completed</label>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="taskAssignee">Assignee</label>
-                    <select id="taskAssignee" class="form-control">
-                        <option value="">Unassigned</option>
-                        <!-- Team members will be populated dynamically -->
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="taskProject">Project</label>
-                    <select id="taskProject" class="form-control">
-                        <!-- Projects will be populated dynamically -->
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="taskDueDate">Due Date</label>
-                    <div class="date-picker-container">
-                        <input type="date" id="taskDueDate" class="form-control">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="taskPriority">Priority</label>
-                    <select id="taskPriority" class="form-control">
-                        <option value="High">High</option>
-                        <option value="Medium" selected>Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
-                </div>
-
-                <input type="hidden" id="taskId" value="">
-
-                <div class="modal-footer">
-                    <button id="deleteTaskButton" class="btn btn-danger">Delete Task</button>
-                    <button id="saveTaskButton" class="btn btn-primary">Save Task</button>
-                </div>
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 id="modal-title">Add Task</h2>
+              <button id="close-modal" class="close-button">&times;</button>
             </div>
-        </div>
+
+            <div class="form-group">
+              <label for="taskName">Task Name</label>
+              <input type="text" id="taskName" class="form-control" placeholder="Enter task name">
+            </div>
+
+            <div class="form-group">
+              <label for="taskDescription">Description</label>
+              <textarea id="taskDescription" class="form-control" rows="3" placeholder="Enter task description"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="taskStatus">Status</label>
+              <select id="taskStatus" class="form-control">
+                <option value="Pending">Pending</option>
+                <option value="To be Deployed">To be Deployed</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="taskAssignee">Assignee</label>
+              <select id="taskAssignee" class="form-control">
+                <option value="">Unassigned</option>
+                <!-- Team members will be populated here by JavaScript -->
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="taskDueDate">Due Date</label>
+              <div class="date-picker-container">
+                <input type="date" id="taskDueDate" class="form-control">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="taskPriority">Priority</label>
+              <select id="taskPriority" class="form-control">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="taskProject">Category</label>
+              <select id="taskProject" class="form-control">
+                <!-- Project options will be populated here by JavaScript -->
+              </select>
+            </div>
+
+            <input type="hidden" id="taskId">
+
+            <div class="modal-footer">
+              <button id="deleteTaskButton" class="btn btn-danger">Delete</button>
+              <button id="saveTaskButton" class="btn btn-primary">Save</button>
+            </div>
+          </div>
+        </div>>
 
         <!-- Member Modal -->
         <div id="memberModal" class="modal">
