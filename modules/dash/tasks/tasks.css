@@ -1,3 +1,5 @@
+/* tasks.css - Updated with status button styles */
+
 .tasks-section {
   margin-bottom: 40px;
   background-color: var(--bg-secondary);
@@ -205,17 +207,57 @@
   border-radius: 50%;
 }
 
-/* Status colors */
-.status-pending .status-dot {
-  background-color: var(--warning-color);
+/* New Status button styling with different colors */
+.task-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: none;
+  min-width: 90px;
+  height: 28px;
 }
 
-.status-to-be-deployed .status-dot {
-  background-color: var(--info-color);
+/* Status colors - New button-like status styles */
+.status-todo {
+  background-color: #808080; /* Gray */
+  color: white;
 }
 
-.status-completed .status-dot {
-  background-color: var(--success-color);
+.status-inprogress {
+  background-color: var(--accent-color); /* Purple */
+  color: black;
+}
+
+.status-fordeployment {
+  background-color: #FFD700; /* Yellow */
+  color: black;
+}
+
+.status-deployed {
+  background-color: var(--success-color); /* Green */
+  color: black;
+}
+
+/* Status dots colors to match status buttons */
+.status-dot.status-todo {
+  background-color: #808080; /* Gray */
+}
+
+.status-dot.status-inprogress {
+  background-color: var(--accent-color); /* Purple */
+}
+
+.status-dot.status-fordeployment {
+  background-color: #FFD700; /* Yellow */
+}
+
+.status-dot.status-deployed {
+  background-color: var(--success-color); /* Green */
 }
 
 .task-content {
@@ -245,12 +287,6 @@
   color: var(--text-tertiary);
 }
 
-/* Style for "to be deployed" tasks */
-.task-title.to-be-deployed,
-.task-description.to-be-deployed {
-  color: var(--info-color);
-}
-
 .task-meta {
   display: flex;
   align-items: center;
@@ -260,16 +296,6 @@
 }
 
 .task-project {
-  display: flex;
-  align-items: center;
-  padding: 4px 8px;
-  background-color: var(--bg-primary);
-  border-radius: 20px;
-  font-size: 12px;
-}
-
-/* Task status badge */
-.task-status {
   display: flex;
   align-items: center;
   padding: 4px 8px;

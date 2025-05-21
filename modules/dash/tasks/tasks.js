@@ -1,3 +1,5 @@
+// tasks.js - Updated with new status display
+
 // Tasks Component - Redesigned version
 // Manages task listing, filtering by projects, and task operations
 
@@ -27,17 +29,25 @@ let currentFilters = {
   project: 'all'
 };
 
-// Task status sequence for cycling
-const statusSequence = ['Pending', 'To be Deployed', 'Completed'];
+// Updated Task status sequence for cycling with new statuses
+const statusSequence = ['TO DO', 'IN PROGRESS', 'FOR DEPLOYMENT', 'DEPLOYED'];
 
 // Map tab data-filter attributes to status values (for consistent comparison)
 const tabToStatusMap = {
-  'pending': 'Pending',
-  'to-be-deployed': 'To be Deployed',
-  'completed': 'Completed',
+  'pending': 'TO DO',
+  'in-progress': 'IN PROGRESS',
+  'to-be-deployed': 'FOR DEPLOYMENT',
+  'completed': 'DEPLOYED',
   'all': 'all',
   'high-priority': 'high-priority',
   'overdue': 'overdue'
+};
+
+// Map old status values to new status values for migration
+const statusMigrationMap = {
+  'Pending': 'TO DO',
+  'To be Deployed': 'FOR DEPLOYMENT',
+  'Completed': 'DEPLOYED'
 };
 
 // Project data - Updated to only include Frontend and Backend
@@ -158,6 +168,19 @@ function getCurrentActiveTab() {
 }
 
 /**
+ * Migrate old status value to new status format
+ */
+function migrateStatusValue(oldStatus) {
+  // If it's already a new status, return it
+  if (statusSequence.includes(oldStatus)) {
+    return oldStatus;
+  }
+  
+  // Map old status to new status or default to TO DO
+  return statusMigrationMap[oldStatus] || 'TO DO';
+}
+
+/**
  * Filter tasks based on tab, member, and project filters
  */
 function filterTasks(tabFilter, memberFilter, projectFilter) {
@@ -166,6 +189,13 @@ function filterTasks(tabFilter, memberFilter, projectFilter) {
   
   // Deep clone the tasks array to avoid mutation issues
   let result = JSON.parse(JSON.stringify(tasks));
+
+  // Ensure all tasks have migrated status values
+  result.forEach(task => {
+    if (!statusSequence.includes(task.status)) {
+      task.status = migrateStatusValue(task.status);
+    }
+  });
   
   // Map tab filter to status if needed
   const statusFilter = tabToStatusMap[tabFilter] || tabFilter;
@@ -174,13 +204,16 @@ function filterTasks(tabFilter, memberFilter, projectFilter) {
   if (tabFilter !== 'all') {
     switch (tabFilter) {
       case 'pending':
-        result = result.filter((task) => task.status === 'Pending');
+        result = result.filter((task) => task.status === 'TO DO');
+        break;
+      case 'in-progress':
+        result = result.filter((task) => task.status === 'IN PROGRESS');
         break;
       case 'to-be-deployed':
-        result = result.filter((task) => task.status === 'To be Deployed');
+        result = result.filter((task) => task.status === 'FOR DEPLOYMENT');
         break;
       case 'completed':
-        result = result.filter((task) => task.status === 'Completed');
+        result = result.filter((task) => task.status === 'DEPLOYED');
         break;
       case 'high-priority':
         result = result.filter((task) => task.priority === 'High');
@@ -230,26 +263,40 @@ function updateTabsBasedOnTask() {
   // Find tasks assigned to the selected member
   const memberTasks = tasks.filter((task) => task.assignee === currentMember);
 
+  // Migrate status values to ensure consistency
+  memberTasks.forEach(task => {
+    if (!statusSequence.includes(task.status)) {
+      task.status = migrateStatusValue(task.status);
+    }
+  });
+
   // Track which statuses have tasks
-  const hasPending = memberTasks.some((task) => task.status === 'Pending');
-  const hasToBeDeploy = memberTasks.some((task) => task.status === 'To be Deployed');
-  const hasCompleted = memberTasks.some((task) => task.status === 'Completed');
+  const hasToDo = memberTasks.some((task) => task.status === 'TO DO');
+  const hasInProgress = memberTasks.some((task) => task.status === 'IN PROGRESS');
+  const hasForDeployment = memberTasks.some((task) => task.status === 'FOR DEPLOYMENT');
+  const hasDeployed = memberTasks.some((task) => task.status === 'DEPLOYED');
   const hasOverdue = memberTasks.some((task) => isTaskOverdue(task));
 
   // Update tabs with indicators
-  if (hasPending) {
+  if (hasToDo) {
     document
       .querySelector('.tab[data-filter="pending"]')
       ?.classList.add('has-assigned');
   }
   
-  if (hasToBeDeploy) {
+  if (hasInProgress) {
+    document
+      .querySelector('.tab[data-filter="in-progress"]')
+      ?.classList.add('has-assigned');
+  }
+  
+  if (hasForDeployment) {
     document
       .querySelector('.tab[data-filter="to-be-deployed"]')
       ?.classList.add('has-assigned');
   }
 
-  if (hasCompleted) {
+  if (hasDeployed) {
     document
       .querySelector('.tab[data-filter="completed"]')
       ?.classList.add('has-assigned');
@@ -289,24 +336,26 @@ function cycleTaskStatus(taskId, event) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
   
-  // Get current status or default to 'Pending'
-  const currentStatus = task.status || 'Pending';
+  // Ensure the task has a migrated status
+  if (!statusSequence.includes(task.status)) {
+    task.status = migrateStatusValue(task.status);
+  }
   
-  // Find current index in sequence
-  const currentIndex = statusSequence.indexOf(currentStatus);
+  // Get current status index in sequence
+  const currentIndex = statusSequence.indexOf(task.status);
   
   // Calculate next status (cycle back to beginning if at end)
   const nextIndex = (currentIndex + 1) % statusSequence.length;
   const nextStatus = statusSequence[nextIndex];
   
-  console.log(`Cycling task ${taskId} from ${currentStatus} to ${nextStatus}`);
+  console.log(`Cycling task ${taskId} from ${task.status} to ${nextStatus}`);
   
   // Update status
   updateTaskStatus(taskId, nextStatus);
 }
 
 /**
- * Set task to completed status immediately
+ * Set task to deployed status immediately
  */
 function completeTask(taskId, event) {
   // Stop event propagation to prevent opening the task edit modal
@@ -314,8 +363,8 @@ function completeTask(taskId, event) {
   
   console.log(`Completing task ${taskId}`);
   
-  // Update status to Completed
-  updateTaskStatus(taskId, 'Completed');
+  // Update status to DEPLOYED
+  updateTaskStatus(taskId, 'DEPLOYED');
 }
 
 /**
@@ -332,7 +381,7 @@ function updateTaskStatus(taskId, newStatus) {
   tasks[taskIndex].status = newStatus;
   
   // For backwards compatibility
-  tasks[taskIndex].completed = (newStatus === 'Completed');
+  tasks[taskIndex].completed = (newStatus === 'DEPLOYED');
   
   // Update UI immediately for better user experience
   updateTaskList();
@@ -345,7 +394,7 @@ function updateTaskStatus(taskId, newStatus) {
     .doc(taskId)
     .update({
       status: newStatus,
-      completed: (newStatus === 'Completed'),
+      completed: (newStatus === 'DEPLOYED'),
       updatedAt: firebase.firestore.Timestamp.now()
     })
     .then(() => {
@@ -366,7 +415,7 @@ function updateTaskStatus(taskId, newStatus) {
       if (taskIndex !== -1) {
         const originalStatus = tasks[taskIndex].status;
         tasks[taskIndex].status = originalStatus;
-        tasks[taskIndex].completed = (originalStatus === 'Completed');
+        tasks[taskIndex].completed = (originalStatus === 'DEPLOYED');
         
         // Refresh the UI with original data
         updateTaskList();
@@ -378,6 +427,24 @@ function updateTaskStatus(taskId, newStatus) {
 }
 
 /**
+ * Get the CSS class for a specific status
+ */
+function getStatusClass(status) {
+  switch (status) {
+    case 'TO DO':
+      return 'status-todo';
+    case 'IN PROGRESS':
+      return 'status-inprogress';
+    case 'FOR DEPLOYMENT':
+      return 'status-fordeployment';
+    case 'DEPLOYED':
+      return 'status-deployed';
+    default:
+      return 'status-todo'; // Default to todo
+  }
+}
+
+/**
  * Render a single task item in the list with compact design and status buttons
  */
 function renderTaskItem(task) {
@@ -385,7 +452,13 @@ function renderTaskItem(task) {
   const taskElement = document.createElement('div');
   taskElement.className = 'task-item';
   taskElement.dataset.id = task.id;
-  taskElement.dataset.status = task.status || 'Pending'; // Add status as data attribute
+  
+  // Ensure task has a migrated status
+  if (!statusSequence.includes(task.status)) {
+    task.status = migrateStatusValue(task.status);
+  }
+  
+  taskElement.dataset.status = task.status; // Add status as data attribute
 
   // Find assignee information
   const assignee = teamMembers.find((member) => member.name === task.assignee);
@@ -395,19 +468,16 @@ function renderTaskItem(task) {
   const projectId = task.category || task.project || 'frontend';
   const project = getProject(projectId);
   
-  // Ensure task has a status (for legacy data)
-  const taskStatus = task.status || (task.completed ? 'Completed' : 'Pending');
-  
-  // Determine task status class - convert spaces to dashes for CSS
-  const statusClass = taskStatus.toLowerCase().replace(/\s+/g, '-');
+  // Get status CSS class
+  const statusClass = getStatusClass(task.status);
 
   // Build task HTML with redesigned layout and status buttons
   taskElement.innerHTML = `
-        <div class="task-status-indicator status-${statusClass}">
-            <span class="status-dot"></span>
+        <div class="task-status-indicator">
+            <span class="status-dot ${statusClass}"></span>
         </div>
         <div class="task-content">
-            <div class="task-title ${statusClass}">
+            <div class="task-title ${task.status === 'DEPLOYED' ? 'completed' : ''}">
                 ${
                   task.priority === 'High'
                     ? '<span class="priority-dot"></span>'
@@ -417,7 +487,7 @@ function renderTaskItem(task) {
             </div>
             ${
               task.description && task.name
-                ? `<div class="task-description ${statusClass}">${task.description}</div>`
+                ? `<div class="task-description ${task.status === 'DEPLOYED' ? 'completed' : ''}">${task.description}</div>`
                 : ''
             }
             <div class="task-meta">
@@ -427,7 +497,9 @@ function renderTaskItem(task) {
                     }"></span>
                     ${project.name}
                 </div>
-                <div class="task-status">${taskStatus}</div>
+                <div class="task-status ${statusClass}">
+                    ${task.status}
+                </div>
                 ${
                   task.dueDate
                     ? `<div class="task-date">${new Date(
@@ -439,7 +511,7 @@ function renderTaskItem(task) {
         </div>
         <div class="task-actions">
             <button class="task-cycle-btn" title="Cycle Status">⟳</button>
-            <button class="task-complete-btn" title="Complete Task">✓</button>
+            <button class="task-complete-btn" title="Mark as Deployed">✓</button>
         </div>
         <div class="task-assignee">
             ${
@@ -491,6 +563,27 @@ function addTaskItemListeners(taskElement) {
 }
 
 /**
+ * Update task modal with new status options
+ */
+function updateTaskModalStatusOptions() {
+  if (!taskStatusSelect) {
+    console.error('Task status select not found');
+    return;
+  }
+  
+  // Clear existing options
+  taskStatusSelect.innerHTML = '';
+  
+  // Add new status options
+  statusSequence.forEach(status => {
+    const option = document.createElement('option');
+    option.value = status;
+    option.textContent = status;
+    taskStatusSelect.appendChild(option);
+  });
+}
+
+/**
  * Add a new task
  */
 function addTask() {
@@ -511,7 +604,7 @@ function addTask() {
   const newTask = {
     name: name,
     description: description,
-    status: taskStatusSelect ? taskStatusSelect.value : 'Pending', // Use the new status field
+    status: taskStatusSelect ? taskStatusSelect.value : 'TO DO', // Use the new status field
     assignee: taskAssigneeInput ? taskAssigneeInput.value : '',
     dueDate: taskDueDateInput ? taskDueDateInput.value : '',
     priority: taskPriorityInput ? taskPriorityInput.value : 'Medium',
@@ -585,7 +678,7 @@ function updateTask() {
   const updatedTask = {
     name: name,
     description: description,
-    status: taskStatusSelect ? taskStatusSelect.value : 'Pending', // Use new status field
+    status: taskStatusSelect ? taskStatusSelect.value : 'TO DO', // Use new status field
     assignee: taskAssigneeInput ? taskAssigneeInput.value : '',
     dueDate: taskDueDateInput ? taskDueDateInput.value : '',
     priority: taskPriorityInput ? taskPriorityInput.value : 'Medium',
@@ -699,7 +792,7 @@ function openAddTaskModal() {
   if (modalTitle) modalTitle.textContent = 'Add Task';
   if (taskNameInput) taskNameInput.value = '';
   if (taskDescriptionInput) taskDescriptionInput.value = '';
-  if (taskStatusSelect) taskStatusSelect.value = 'Pending'; // Set default status to Pending
+  if (taskStatusSelect) taskStatusSelect.value = 'TO DO'; // Set default status to TO DO
   if (taskAssigneeInput) taskAssigneeInput.value = '';
   if (taskDueDateInput) taskDueDateInput.value = '';
   if (taskPriorityInput) taskPriorityInput.value = 'Medium';
@@ -732,18 +825,18 @@ function openEditTaskModal(taskId) {
     return;
   }
 
+  // Ensure task has a migrated status
+  if (!statusSequence.includes(task.status)) {
+    task.status = migrateStatusValue(task.status);
+  }
+
   if (modalTitle) modalTitle.textContent = 'Edit Task';
   if (taskNameInput) taskNameInput.value = task.name || '';
   if (taskDescriptionInput) taskDescriptionInput.value = task.description || '';
   
   // Set status based on new or legacy data structure
   if (taskStatusSelect) {
-    if (task.status) {
-      taskStatusSelect.value = task.status;
-    } else {
-      // Legacy data conversion - if task has completed property
-      taskStatusSelect.value = task.completed ? 'Completed' : 'Pending';
-    }
+    taskStatusSelect.value = task.status || 'TO DO';
   }
   
   if (taskAssigneeInput) taskAssigneeInput.value = task.assignee || '';
@@ -773,6 +866,38 @@ function openEditTaskModal(taskId) {
 }
 
 /**
+ * Migrate all tasks to new status format
+ */
+function migrateTasksToNewStatusFormat() {
+  console.log('Migrating tasks to new status format');
+  
+  // Update tasks in local array
+  tasks.forEach(task => {
+    if (!statusSequence.includes(task.status)) {
+      const oldStatus = task.status;
+      task.status = migrateStatusValue(oldStatus);
+      
+      // Update in Firebase if we have an ID
+      if (task.id) {
+        db.collection('tasks')
+          .doc(task.id)
+          .update({
+            status: task.status,
+            // For backward compatibility
+            completed: (task.status === 'DEPLOYED')
+          })
+          .then(() => {
+            console.log(`Migrated task ${task.id} from ${oldStatus} to ${task.status}`);
+          })
+          .catch(error => {
+            console.error(`Error migrating task ${task.id}:`, error);
+          });
+      }
+    }
+  });
+}
+
+/**
  * Fix tabs if they don't have proper data-filter attributes
  */
 function ensureTabsHaveDataFilters() {
@@ -784,7 +909,7 @@ function ensureTabsHaveDataFilters() {
   }
   
   // Expected tab filters
-  const expectedFilters = ['all', 'pending', 'to-be-deployed', 'completed', 'high-priority', 'overdue'];
+  const expectedFilters = ['all', 'pending', 'in-progress', 'to-be-deployed', 'completed', 'high-priority', 'overdue'];
   
   // Check each tab
   tabs.forEach(tab => {
@@ -795,11 +920,13 @@ function ensureTabsHaveDataFilters() {
       
       if (text.includes('all')) {
         tab.setAttribute('data-filter', 'all');
-      } else if (text.includes('pending')) {
+      } else if (text.includes('to do') || text.includes('pending')) {
         tab.setAttribute('data-filter', 'pending');
-      } else if (text.includes('to be deployed') || text.includes('deploy')) {
+      } else if (text.includes('in progress')) {
+        tab.setAttribute('data-filter', 'in-progress');
+      } else if (text.includes('to be deployed') || text.includes('for deploy')) {
         tab.setAttribute('data-filter', 'to-be-deployed');
-      } else if (text.includes('completed')) {
+      } else if (text.includes('deployed') || text.includes('completed')) {
         tab.setAttribute('data-filter', 'completed');
       } else if (text.includes('high') || text.includes('priority')) {
         tab.setAttribute('data-filter', 'high-priority');
@@ -823,33 +950,6 @@ function ensureTabsHaveDataFilters() {
 }
 
 /**
- * Normalize task status values across all tasks for consistent filtering
- */
-function normalizeTaskStatuses() {
-  console.log('Normalizing task status values for consistent filtering');
-  
-  // Fix any inconsistent status values
-  tasks.forEach(task => {
-    if (!task.status) {
-      // Convert legacy format
-      task.status = task.completed ? 'Completed' : 'Pending';
-    }
-    
-    // Ensure consistent status formatting
-    if (task.status === 'to be deployed' || task.status === 'to-be-deployed') {
-      task.status = 'To be Deployed';
-    } else if (task.status === 'completed' || task.status === 'done') {
-      task.status = 'Completed';
-    } else if (task.status === 'pending' || task.status === 'todo' || task.status === 'to-do') {
-      task.status = 'Pending';
-    }
-    
-    // Ensure completed flag is consistent with status
-    task.completed = (task.status === 'Completed');
-  });
-}
-
-/**
  * Initialize task-related event listeners
  */
 function initTasksListeners() {
@@ -858,8 +958,11 @@ function initTasksListeners() {
   // Fix tab data-filter attributes
   ensureTabsHaveDataFilters();
   
-  // Normalize status values in tasks
-  normalizeTaskStatuses();
+  // Migrate tasks to new status format
+  migrateTasksToNewStatusFormat();
+  
+  // Update task modal status options
+  updateTaskModalStatusOptions();
 
   // Initialize projects
   initProjects();
