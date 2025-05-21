@@ -5,6 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCADA Team Tasklist</title>
+
+    <link rel="apple-touch-icon" sizes="180x180" href="asset/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="asset/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="asset/favicon/favicon-16x16.png">
+    <link rel="manifest" href="asset/favicon/site.webmanifest">
+    <link rel="shortcut icon" href="asset/favicon/favicon.ico">
+    <meta name="msapplication-TileColor" content="#bb86fc">
+    <meta name="theme-color" content="#121212">
+
     <!-- Firebase SDK CDN links -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -63,6 +72,13 @@
                 <div class="stat-value" id="high-priority-tasks">0</div>
             </div>
 
+            <div class="stat-card" id="for-deployment-tasks-card">
+                <div class="stat-left">
+                    <div class="stat-title">For Deployment</div>
+                </div>
+                <div class="stat-value" id="for-deployment-tasks">0</div>
+            </div>
+
             <div class="stat-card" id="overdue-tasks-card">
                 <div class="stat-left">
                     <div class="stat-title">Overdue</div>
@@ -117,6 +133,7 @@
                 <div class="tabs">
                     <div class="tab active" data-filter="all">All</div>
                     <div class="tab" data-filter="pending">Pending</div>
+                    <div class="tab" data-filter="in-progress">In Progress</div>
                     <div class="tab" data-filter="to-be-deployed">To be Deployed</div>
                     <div class="tab" data-filter="completed">Completed</div>
                     <div class="tab" data-filter="high-priority">High Priority</div>
@@ -150,9 +167,10 @@
             <div class="form-group">
               <label for="taskStatus">Status</label>
               <select id="taskStatus" class="form-control">
-                <option value="Pending">Pending</option>
-                <option value="To be Deployed">To be Deployed</option>
-                <option value="Completed">Completed</option>
+                <option value="TO DO">TO DO</option>
+                <option value="IN PROGRESS">IN PROGRESS</option>
+                <option value="FOR DEPLOYMENT">FOR DEPLOYMENT</option>
+                <option value="DEPLOYED">DEPLOYED</option>
               </select>
             </div>
 

@@ -1,4 +1,4 @@
-/* tasks.css - Updated with status button styles */
+/* tasks.css - Updated with clickable status styles */
 
 .tasks-section {
   margin-bottom: 40px;
@@ -91,6 +91,8 @@
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .tab.active {
@@ -118,6 +120,26 @@
   height: 8px;
   border-radius: 50%;
   background-color: var(--error-color);
+}
+
+/* Tab count badge */
+.tab-count {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background-color: var(--bg-primary);
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+.tab.active .tab-count {
+  background-color: rgba(0, 0, 0, 0.3);
+  color: white;
 }
 
 /* Task List */
@@ -155,7 +177,6 @@
   margin-right: 5px;
 }
 
-.task-cycle-btn,
 .task-complete-btn {
   width: 32px;
   height: 32px;
@@ -170,20 +191,6 @@
   padding: 0;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-}
-
-.task-cycle-btn {
-  background-color: var(--bg-primary);
-}
-
-.task-cycle-btn:hover {
-  background-color: var(--info-color);
-  color: #000;
-  transform: scale(1.1);
-}
-
-.task-complete-btn {
-  background-color: var(--bg-primary);
 }
 
 .task-complete-btn:hover {
@@ -220,9 +227,22 @@
   border: none;
   min-width: 90px;
   height: 28px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-/* Status colors - New button-like status styles */
+.task-status:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.task-status:active {
+  transform: translateY(0);
+}
+
+/* Status colors - Button-like status styles */
 .status-todo {
   background-color: #808080; /* Gray */
   color: white;

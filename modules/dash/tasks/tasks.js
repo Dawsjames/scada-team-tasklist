@@ -1,4 +1,4 @@
-// tasks.js - Updated with new status display
+// tasks.js - Updated with clickable status and filter counts
 
 // Tasks Component - Redesigned version
 // Manages task listing, filtering by projects, and task operations
@@ -136,6 +136,9 @@ function updateTaskList() {
 
   // Update tab highlights
   updateTabsBasedOnTask();
+  
+  // Update filter counts
+  updateFilterCounts();
 }
 
 /**
@@ -310,6 +313,76 @@ function updateTabsBasedOnTask() {
 }
 
 /**
+ * Update filter tabs with task counts
+ */
+function updateFilterCounts() {
+  // Calculate counts for each filter
+  const allCount = tasks.length;
+  
+  // Ensure all tasks have migrated status values first
+  tasks.forEach(task => {
+    if (!statusSequence.includes(task.status)) {
+      task.status = migrateStatusValue(task.status);
+    }
+  });
+  
+  const toDoCount = tasks.filter(task => task.status === 'TO DO').length;
+  const inProgressCount = tasks.filter(task => task.status === 'IN PROGRESS').length;
+  const forDeploymentCount = tasks.filter(task => task.status === 'FOR DEPLOYMENT').length;
+  const deployedCount = tasks.filter(task => task.status === 'DEPLOYED').length;
+  const highPriorityCount = tasks.filter(task => task.priority === 'High').length;
+  const overdueCount = tasks.filter(task => isTaskOverdue(task)).length;
+  
+  // Update each tab's count
+  document.querySelectorAll('.tab').forEach(tab => {
+    // Remove any existing count span
+    const existingCount = tab.querySelector('.tab-count');
+    if (existingCount) {
+      existingCount.remove();
+    }
+    
+    // Get filter type from data-filter attribute
+    const filter = tab.getAttribute('data-filter');
+    let count = 0;
+    
+    // Determine count based on filter type
+    switch(filter) {
+      case 'all':
+        count = allCount;
+        break;
+      case 'pending':
+        count = toDoCount;
+        break;
+      case 'in-progress':
+        count = inProgressCount;
+        break;
+      case 'to-be-deployed':
+        count = forDeploymentCount;
+        break;
+      case 'completed':
+        count = deployedCount;
+        break;
+      case 'high-priority':
+        count = highPriorityCount;
+        break;
+      case 'overdue':
+        count = overdueCount;
+        break;
+      default:
+        count = 0;
+    }
+    
+    // Add count span if count > 0
+    if (count > 0) {
+      const countSpan = document.createElement('span');
+      countSpan.className = 'tab-count';
+      countSpan.textContent = count;
+      tab.appendChild(countSpan);
+    }
+  });
+}
+
+/**
  * Render empty state message when no tasks match filters
  */
 function renderEmptyState() {
@@ -471,7 +544,7 @@ function renderTaskItem(task) {
   // Get status CSS class
   const statusClass = getStatusClass(task.status);
 
-  // Build task HTML with redesigned layout and status buttons
+  // Build task HTML with redesigned layout and clickable status button
   taskElement.innerHTML = `
         <div class="task-status-indicator">
             <span class="status-dot ${statusClass}"></span>
@@ -497,7 +570,7 @@ function renderTaskItem(task) {
                     }"></span>
                     ${project.name}
                 </div>
-                <div class="task-status ${statusClass}">
+                <div class="task-status ${statusClass}" data-task-id="${task.id}">
                     ${task.status}
                 </div>
                 ${
@@ -510,7 +583,6 @@ function renderTaskItem(task) {
             </div>
         </div>
         <div class="task-actions">
-            <button class="task-cycle-btn" title="Cycle Status">⟳</button>
             <button class="task-complete-btn" title="Mark as Deployed">✓</button>
         </div>
         <div class="task-assignee">
@@ -540,10 +612,10 @@ function addTaskItemListeners(taskElement) {
 
   const taskId = taskElement.dataset.id;
   
-  // Add cycle button listener
-  const cycleButton = taskElement.querySelector('.task-cycle-btn');
-  if (cycleButton) {
-    cycleButton.addEventListener('click', (e) => cycleTaskStatus(taskId, e));
+  // Add status button click listener
+  const statusButton = taskElement.querySelector('.task-status');
+  if (statusButton) {
+    statusButton.addEventListener('click', (e) => cycleTaskStatus(taskId, e));
   }
   
   // Add complete button listener
@@ -554,8 +626,8 @@ function addTaskItemListeners(taskElement) {
 
   // Make the entire task item clickable to open edit modal (except buttons)
   taskElement.addEventListener('click', function (e) {
-    // Only open modal if we didn't click on a button
-    if (!e.target.closest('button')) {
+    // Only open modal if we didn't click on a button or the status
+    if (!e.target.closest('button') && !e.target.closest('.task-status')) {
       console.log('Task clicked, opening edit modal for:', taskId);
       openEditTaskModal(taskId);
     }
@@ -1025,4 +1097,7 @@ function initTasksListeners() {
   } else {
     console.error('Project filter not found');
   }
+  
+  // Initial filter counts update
+  updateFilterCounts();
 }
